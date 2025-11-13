@@ -8,7 +8,7 @@ import json
 # ───────────────────────────────────────────────
 # Initialize FastAPI app
 # ───────────────────────────────────────────────
-app = FastAPI(title="Paragraph Orchestra API", version="2.4.0")
+app = FastAPI(title="Paragraph Orchestra API (NEET-UG)", version="1.0.0")
 
 # ✅ Allow frontend (Expo / Web / React) to call this API
 app.add_middleware(
@@ -27,10 +27,10 @@ async def orchestrate(request: Request):
     payload = await request.json()
     action = payload.get("action")
     student_id = payload.get("student_id")
-    subject_id = payload.get("subject_id")
+    chapter_id = payload.get("chapter_id")
     message = payload.get("message")
 
-    print(f"🎬 Action = {action}, Student = {student_id}, Subject = {subject_id}")
+    print(f"🎬 Action = {action}, Student = {student_id}, Chapter = {chapter_id}")
 
     # ───────────────────────────────
     # 🟢 1️⃣ START (chapter flow)
@@ -38,7 +38,7 @@ async def orchestrate(request: Request):
     if action == "start":
         rpc_data = call_rpc("start_orchestra", {
             "p_student_id": student_id,
-            "p_subject_id": subject_id
+            "p_chapter_id": chapter_id
         })
         if not rpc_data or "phase_type" not in rpc_data:
             print(f"⚠️ RPC failed or returned empty → {rpc_data}")
@@ -46,8 +46,8 @@ async def orchestrate(request: Request):
 
         return {
             "student_id": student_id,
-            "subject_id": subject_id,
-            "react_order_final": rpc_data.get("react_order_final"),
+            "chapter_id": chapter_id,
+            "react_order": rpc_data.get("react_order"),
             "phase_type": rpc_data.get("phase_type"),
             "phase_json": rpc_data.get("phase_json"),
             "mentor_reply": rpc_data.get("mentor_reply"),
@@ -67,14 +67,14 @@ async def orchestrate(request: Request):
                 supabase.table("student_phase_pointer")
                 .select("pointer_id, conversation_log")
                 .eq("student_id", student_id)
-                .eq("subject_id", subject_id)
+                .eq("chapter_id", chapter_id)
                 .order("updated_at", desc=True)
                 .limit(1)
                 .execute()
             )
 
             if not res.data:
-                return {"error": "⚠️ No active pointer for this subject"}
+                return {"error": "⚠️ No active pointer for this chapter"}
 
             pointer = res.data[0]
             pointer_id = pointer["pointer_id"]
@@ -90,7 +90,7 @@ async def orchestrate(request: Request):
 
         # ✅ Mentor prompt
         prompt = """
-You are a senior NEET-PG mentor with 30 years’ experience.
+You are a senior NEET-UG mentor with 30 years’ experience.
 Guide the student concisely, in Markdown with Unicode symbols, ≤150 words.
 Use headings, **bold**, _italic_, arrows (→, ↑, ↓), subscripts/superscripts (₁, ₂, ³, ⁺, ⁻),
 and emojis (💡🧠⚕️📘) naturally. Do NOT output code blocks or JSON.
@@ -130,7 +130,7 @@ and emojis (💡🧠⚕️📘) naturally. Do NOT output code blocks or JSON.
     elif action == "next":
         rpc_data = call_rpc("next_orchestra", {
             "p_student_id": student_id,
-            "p_subject_id": subject_id
+            "p_chapter_id": chapter_id
         })
 
         if not rpc_data or "phase_type" not in rpc_data:
@@ -139,8 +139,8 @@ and emojis (💡🧠⚕️📘) naturally. Do NOT output code blocks or JSON.
 
         return {
             "student_id": student_id,
-            "subject_id": subject_id,
-            "react_order_final": rpc_data.get("react_order_final"),
+            "chapter_id": chapter_id,
+            "react_order": rpc_data.get("react_order"),
             "phase_type": rpc_data.get("phase_type"),
             "phase_json": rpc_data.get("phase_json"),
             "mentor_reply": rpc_data.get("mentor_reply"),
@@ -154,14 +154,14 @@ and emojis (💡🧠⚕️📘) naturally. Do NOT output code blocks or JSON.
     elif action == "bookmark_review":
         rpc_data = call_rpc("get_first_bookmarked_phase", {
             "p_student_id": student_id,
-            "p_subject_id": subject_id,
+            "p_chapter_id": chapter_id,
         })
 
         if not rpc_data:
-            print(f"⚠️ No bookmarks found for student {student_id}, subject {subject_id}")
+            print(f"⚠️ No bookmarks found for student {student_id}, chapter {chapter_id}")
             return {"bookmarked_concepts": []}
 
-        print(f"✅ First bookmarked concept returned for subject {subject_id}")
+        print(f"✅ First bookmarked concept returned for chapter {chapter_id}")
         return {"bookmarked_concepts": [rpc_data]}
 
     elif action == "bookmark_review_next":
@@ -177,12 +177,12 @@ and emojis (💡🧠⚕️📘) naturally. Do NOT output code blocks or JSON.
 
         rpc_data = call_rpc("get_next_bookmarked_phase", {
             "p_student_id": student_id,
-            "p_subject_id": subject_id,
+            "p_chapter_id": chapter_id,
             "p_last_bookmark_time": last_time.isoformat() if last_time else None,
         })
 
         if not rpc_data:
-            print(f"⚠️ No further bookmarks for student {student_id}, subject {subject_id}")
+            print(f"⚠️ No further bookmarks for student {student_id}, chapter {chapter_id}")
             return {"bookmarked_concepts": []}
 
         print(f"✅ RPC returned next bookmark → {rpc_data.get('pointer_id')}")
@@ -198,14 +198,14 @@ and emojis (💡🧠⚕️📘) naturally. Do NOT output code blocks or JSON.
 
         print(f"💬 bookmark_review_chat → phase_type={phase_type}, time={bookmark_updated_time}")
 
-        # 1️⃣ Get last conversation for this student/subject
+        # 1️⃣ Get last conversation for this student/chapter
         convo_log = []
         try:
             res = (
                 supabase.table("concept_review_bookmarks_chat")
                 .select("id, conversation_log")
                 .eq("student_id", student_id)
-                .eq("subject_id", subject_id)
+                .eq("chapter_id", chapter_id)
                 .eq("phase_type", phase_type)
                 .order("updated_at", desc=True)
                 .eq("bookmark_updated_time", bookmark_updated_time)
@@ -218,15 +218,14 @@ and emojis (💡🧠⚕️📘) naturally. Do NOT output code blocks or JSON.
                 chat_id = chat_row["id"]
                 convo_log = chat_row.get("conversation_log", [])
             else:
-                # New chat row if none exists
                 insert_res = (
                     supabase.table("concept_review_bookmarks_chat")
                     .insert({
                         "student_id": student_id,
-                        "subject_id": subject_id,
+                        "chapter_id": chapter_id,
                         "phase_type": phase_type,
                         "phase_json": phase_json,
-                        "bookmark_updated_time": bookmark_updated_time, # ✅ added here
+                        "bookmark_updated_time": bookmark_updated_time,
                         "conversation_log": [],
                         "created_at": datetime.utcnow().isoformat() + "Z",
                     })
@@ -237,21 +236,18 @@ and emojis (💡🧠⚕️📘) naturally. Do NOT output code blocks or JSON.
             print(f"⚠️ DB fetch/insert failed: {e}")
             return {"error": "DB fetch failed"}
 
-        # ✅ If no message provided → just return existing conversation
         if not message:
             print("ℹ️ No message → returning existing conversation only")
             return {"existing_conversation": convo_log}
 
-        # 2️⃣ Append student message
         convo_log.append({
             "role": "student",
             "content": message,
             "ts": datetime.utcnow().isoformat() + "Z",
         })
 
-        # 3️⃣ Generate mentor reply via GPT
         prompt = """
-You are a senior NEET-PG mentor with 30 years’ experience.
+You are a senior NEET-UG mentor with 30 years’ experience.
 Guide the student concisely, in Markdown with Unicode symbols, ≤150 words.
 Use headings, **bold**, _italic_, arrows (→, ↑, ↓), subscripts/superscripts (₁, ₂, ³, ⁺, ⁻),
 and emojis (💡🧠⚕️📘) naturally. Do NOT output code blocks or JSON.
@@ -272,7 +268,6 @@ and emojis (💡🧠⚕️📘) naturally. Do NOT output code blocks or JSON.
             "ts": datetime.utcnow().isoformat() + "Z",
         })
 
-        # 4️⃣ Update the conversation_log back into table
         try:
             supabase.table("concept_review_bookmarks_chat") \
                 .update({
@@ -280,14 +275,13 @@ and emojis (💡🧠⚕️📘) naturally. Do NOT output code blocks or JSON.
                     "updated_at": datetime.utcnow().isoformat() + "Z",
                 }) \
                 .eq("student_id", student_id) \
-                .eq("subject_id", subject_id) \
+                .eq("chapter_id", chapter_id) \
                 .eq("phase_type", phase_type) \
                 .eq("bookmark_updated_time", bookmark_updated_time)\
                 .execute()
         except Exception as e:
             print(f"⚠️ DB update failed: {e}")
 
-        # 5️⃣ Return GPT reply to frontend
         return {
             "mentor_reply": mentor_reply,
             "gpt_status": gpt_status,
@@ -308,20 +302,20 @@ async def submit_answer(request: Request):
     try:
         data = await request.json()
         student_id = data.get("student_id")
-        subject_id = data.get("subject_id")
-        react_order_final = data.get("react_order_final")
+        chapter_id = data.get("chapter_id")
+        react_order = data.get("react_order")
         student_answer = data.get("student_answer")
         correct_answer = data.get("correct_answer")
         is_correct = data.get("is_correct")
         is_completed = data.get("is_completed", True)
 
-        if not student_id or not react_order_final:
-            return {"error": "❌ Missing student_id or react_order_final"}
+        if not student_id or not react_order:
+            return {"error": "❌ Missing student_id or react_order"}
 
         payload = {
             "student_id": student_id,
-            "subject_id": subject_id,
-            "react_order_final": int(react_order_final),
+            "chapter_id": chapter_id,
+            "react_order": int(react_order),
             "student_answer": student_answer,
             "correct_answer": correct_answer,
             "is_correct": is_correct,
@@ -330,10 +324,10 @@ async def submit_answer(request: Request):
         }
 
         supabase.table("student_mcq_submissions") \
-            .upsert(payload, on_conflict=["student_id", "react_order_final"]) \
+            .upsert(payload, on_conflict=["student_id", "chapter_id", "react_order"]) \
             .execute()
 
-        print(f"✅ MCQ submission saved → student {student_id}, subject {subject_id}, react_order_final {react_order_final}")
+        print(f"✅ MCQ submission saved → student {student_id}, chapter {chapter_id}, react_order {react_order}")
         return {"status": "success", "data": payload}
 
     except Exception as e:
@@ -346,7 +340,4 @@ async def submit_answer(request: Request):
 # ───────────────────────────────────────────────
 @app.get("/")
 def home():
-    return {"message": "🧠 Paragraph Orchestra API (bookmark review + chat intent) is live!"}
-
-
-
+    return {"message": "📘 Paragraph Orchestra API (NEET-UG, bookmark review + chat intent) is live!"}
