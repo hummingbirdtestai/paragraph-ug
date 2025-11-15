@@ -40,7 +40,7 @@ async def flashcard_orchestrate(request: Request):
     payload = await request.json()
     action = payload.get("action")
     student_id = payload.get("student_id")
-    subject_id = payload.get("subject_id")
+    chapter_id = payload.get("chapter_id")
     message = payload.get("message")
 
     print(f"🎬 Flashcard Action = {action}, Student = {student_id}")
@@ -51,7 +51,7 @@ async def flashcard_orchestrate(request: Request):
     if action == "start_flashcard":
         rpc_data = call_rpc("start_flashcard_orchestra", {
             "p_student_id": student_id,
-            "p_subject_id": subject_id
+            "p_chapter_id": chapter_id
         })
         if not rpc_data:
             return {"error": "❌ start_flashcard_orchestra RPC failed"}
@@ -62,7 +62,7 @@ async def flashcard_orchestrate(request: Request):
         try:
             call_rpc("update_flashcard_pointer_status", {
                 "p_student_id": student_id,
-                "p_subject_id": subject_id,
+                "p_chapter_id": chapter_id,
                 "p_react_order_final": rpc_data.get("react_order_final"),
                 "p_phase_json": safe_phase_json,
                 "p_mentor_reply": safe_mentor_reply
@@ -162,7 +162,7 @@ You are given the full flashcard conversation log — a list of chat objects:
     elif action == "next_flashcard":
         rpc_data = call_rpc("next_flashcard_orchestra", {
             "p_student_id": student_id,
-            "p_subject_id": subject_id
+            "p_chapter_id": chapter_id
         })
         if not rpc_data:
             return {"error": "❌ next_flashcard_orchestra RPC failed"}
@@ -173,7 +173,7 @@ You are given the full flashcard conversation log — a list of chat objects:
         try:
             call_rpc("update_flashcard_pointer_status", {
                 "p_student_id": student_id,
-                "p_subject_id": subject_id,
+                "p_chapter_id": chapter_id,
                 "p_react_order_final": rpc_data.get("react_order_final"),
                 "p_phase_json": safe_phase_json,
                 "p_mentor_reply": safe_mentor_reply
@@ -199,7 +199,7 @@ You are given the full flashcard conversation log — a list of chat objects:
     elif action == "start_bookmarked_revision":
         rpc_data = call_rpc("get_bookmarked_flashcards", {
             "p_student_id": student_id,
-            "p_subject_id": subject_id
+            "p_chapter_id": chapter_id
         })
         if not rpc_data:
             return {"error": "❌ get_bookmarked_flashcards RPC failed"}
@@ -237,7 +237,7 @@ You are given the full flashcard conversation log — a list of chat objects:
 
         rpc_data = call_rpc("get_next_bookmarked_flashcard", {
             "p_student_id": student_id,
-            "p_subject_id": subject_id,
+            "p_chapter_id": chapter_id,
             "p_last_updated_time": last_updated_time
         })
         if not rpc_data:
@@ -272,7 +272,7 @@ You are given the full flashcard conversation log — a list of chat objects:
     # 🔴 6️⃣ CHAT_REVIEW_FLASHCARD_BOOKMARKS
     # ───────────────────────────────
     elif action == "chat_review_flashcard_bookmarks":
-        subject_id = payload.get("subject_id")
+        chapter_id = payload.get("chapter_id")
         flashcard_id = payload.get("flashcard_id")
         flashcard_updated_time = payload.get("flashcard_updated_time")
         message = payload.get("message")
@@ -333,7 +333,7 @@ You are given the full flashcard conversation log — a list of chat objects:
             else:
                 supabase.table("flashcard_review_bookmarks_chat").insert({
                     "student_id": student_id,
-                    "subject_id": subject_id,
+                    "chapter_id": chapter_id,
                     "flashcard_id": flashcard_id,
                     "flashcard_updated_time": flashcard_updated_time,
                     "conversation_log": convo_log
